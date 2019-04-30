@@ -157,7 +157,7 @@ public class DBConnector {
         wordCount++;
     }
 
-    public void incrementSentenceCount() {
+    public void incSentenceCount() {
         sentenceCount++;
     }
 
