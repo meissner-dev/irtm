@@ -1,15 +1,12 @@
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 
 public class DBConnector {
     Connection con;
-    private int wordCount = 1;
-    private int sentenceCount = 1;
-    private HashMap<String, String> invertedWordList;
-    private HashMap<String, Integer> wordList;
     private ArrayList<String> sentenceList;
+    private ArrayList<Word> wordList, stemmedWordList;
     private PreparedStatement stopwordSt;
+    private Model model;
 
     public DBConnector() {
 
@@ -22,11 +19,16 @@ public class DBConnector {
             e.printStackTrace();
         }
 
-        wordList = new HashMap<>();
-        invertedWordList = new HashMap<>();
+        wordList = new ArrayList<>();
+        stemmedWordList = new ArrayList<>();
         sentenceList = new ArrayList<>();
 
         resetDB();
+    }
+
+    public void setModel(Model model)
+    {
+        this.model = model;
     }
 
     private void resetDB() {
@@ -52,7 +54,7 @@ public class DBConnector {
         return null;
     }
 
-    public void insertInDB(String... args) {//0=tableName, 1=Text, 2=
+    public void insertInDB(String... args) {
         switch (args[0]) {
             case Model.STOPWORDS_TABLE:
                 insertInStopWords(args[1]);
@@ -63,41 +65,66 @@ public class DBConnector {
             case Model.WORDS_TABLE:
                 insertInWords(args[1]);
                 break;
-            case Model.WORDS_INVERTED_TABLE:
-                insertInInvertedList(args[1]);
+            case Model.WORDS_STEMMED_TABLE:
+                insertInStemmedWords(args[1]);
                 break;
             default:
                 System.err.println("Non-valid tablename");
         }
     }
 
-    private void insertInInvertedList(String word) {
-        if (invertedWordList.containsKey(word)) {
-            invertedWordList.put(word, invertedWordList.get(word) + " " + wordCount);
-        } else {
-            invertedWordList.put(word, "" + wordCount);
-        }
-    }
+    private void createInvertedList()
+    {
+        int posCount = 0;
+        Map<String, Integer> invertedList = new TreeMap<>();
+        Map<Integer,String> posList = new TreeMap<>();
 
-    private void UpdateInverted() {
-        String insert = "INSERT INTO " + Model.WORDS_INVERTED_TABLE + " (word,positions) VALUES (?,?)";
+        for (Word word : wordList) {
+            if(invertedList.containsKey(word.getText()))
+            {
+                int posId = invertedList.get(word.getText());
+                posList.put(posId, posList.get(posId) + " " + word.getPosition());
+            }
+            else
+            {
+                invertedList.put(word.getText(), posCount);
+                posList.put(posCount, String.valueOf(word.getPosition()));
+                posCount++;
+            }
+        }
+
+        String insert = "INSERT INTO " + Model.WORDS_INVERTED_TABLE + " (word,posId) VALUES (?,?)";
         try (PreparedStatement invertedStatement = con.prepareStatement(insert)) {
-            for (String key : invertedWordList.keySet()) {
-                invertedStatement.setString(1, key);
-                invertedStatement.setString(2, invertedWordList.get(key));
+            for (String word : invertedList.keySet()) {
+                invertedStatement.setString(1, word);
+                invertedStatement.setInt(2, invertedList.get(word));
                 invertedStatement.executeUpdate();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        insert = "INSERT INTO " + Model.WORDS_POSITIONS + " (posId,positions) VALUES (?,?)";
+        try (PreparedStatement positionStatement = con.prepareStatement(insert)) {
+            for (Integer posId : posList.keySet()) {
+                positionStatement.setInt(1, posId);
+                positionStatement.setString(2, posList.get(posId));
+                positionStatement.executeUpdate();
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    private void UpdateWordList() {
-        String insert = "INSERT INTO " + Model.WORDS_TABLE + " (word,senid) VALUES (?,?)";
+    private void updateWordList() {
+        String insert = "INSERT INTO " + Model.WORDS_TABLE + " (word,position,senid) VALUES (?,?,?)";
+
         try (PreparedStatement wordStatement = con.prepareStatement(insert)) {
-            for (String key : wordList.keySet()) {
-                wordStatement.setString(1, key);
-                wordStatement.setInt(2, wordList.get(key));
+            for (Word word : wordList)
+            {
+                wordStatement.setString(1, word.getText());
+                wordStatement.setInt(2, word.getPosition());
+                wordStatement.setInt(3, word.getSentenceId());
                 wordStatement.executeUpdate();
             }
         } catch (SQLException e) {
@@ -105,7 +132,23 @@ public class DBConnector {
         }
     }
 
-    private void UpdateSentenceList() {
+    private void updateStemmedWordList() {
+        String insert = "INSERT INTO " + Model.WORDS_STEMMED_TABLE + " (word,position,senid) VALUES (?,?,?)";
+
+        try (PreparedStatement wordStatement = con.prepareStatement(insert)) {
+            for (Word word : stemmedWordList)
+            {
+                wordStatement.setString(1, word.getText());
+                wordStatement.setInt(2, word.getPosition());
+                wordStatement.setInt(3, word.getSentenceId());
+                wordStatement.executeUpdate();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void updateSentenceList() {
         String insert = "INSERT INTO " + Model.SENTENCES_TABLE + " (content) VALUES (?)";
         try (PreparedStatement sentenceStatement = con.prepareStatement(insert)) {
             for (String sentence : sentenceList) {
@@ -132,7 +175,11 @@ public class DBConnector {
     }
 
     private void insertInWords(String word) {
-        wordList.put(word, sentenceCount);
+        wordList.add(new Word(word, model.getWordCount(), model.getSentenceCount()));
+    }
+
+    private void insertInStemmedWords(String word) {
+        stemmedWordList.add(new Word(word, model.getWordCount(), model.getSentenceCount()));
     }
 
     private void insertInSentences(String content) {
@@ -153,17 +200,10 @@ public class DBConnector {
         }
     }
 
-    public void incWordCount() {
-        wordCount++;
-    }
-
-    public void incSentenceCount() {
-        sentenceCount++;
-    }
-
     public void UpdateDatabase() {
-        UpdateWordList();
-        UpdateInverted();
-        UpdateSentenceList();
+        updateWordList();
+        updateStemmedWordList();
+        createInvertedList();
+        updateSentenceList();
     }
 }
