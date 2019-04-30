@@ -98,7 +98,7 @@ public class Model {
         {
             if(rs.next())
             {
-                result= rs.getString("positions");
+                result = rs.getString("positions");
             }
             else
             {
