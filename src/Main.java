@@ -12,6 +12,8 @@ public class Main {
         System.out.println(System.currentTimeMillis()-start);
         System.out.println("Analysis succesful.");
 
+        //model.printOccurences();
+
         Scanner reader = new Scanner(System.in);
         String input = new String();
         while(!input.equals("exit"))

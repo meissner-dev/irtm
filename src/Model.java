@@ -1,12 +1,7 @@
-import org.tartarus.snowball.ext.GermanStemmer;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStreamReader;
-import java.lang.reflect.Array;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.*;
 
 public class Model {
@@ -62,7 +57,7 @@ public class Model {
                         // Word ended
                         if (sb.toString().isEmpty())
                             continue;
-                        addWordToDatabase(i, sb.toString());
+                        addWord(i, sb.toString());
                         wordCount++;
                         sb.delete(0, sb.length());
                     }
@@ -97,9 +92,10 @@ public class Model {
         calculateTFIDF();
     }
 
-    public void addWordToDatabase(int docID, String word) {
-        if(allWords.containsValue(word))
+    public void addWord(int docID, String word) {
+        if(allWords.containsKey(word))
         {
+            System.out.println("found one");
             int wordID = allWords.get(word);
             int occInDoc = occurences.get(wordID).get(docID);
             occurences.get(wordID).set(docID, occInDoc+1);
@@ -118,7 +114,7 @@ public class Model {
         }
     }
 
-    public void calculateIDF()
+    private void calculateIDF()
     {
         for(int i=0; i < wordCount; i++)
         {
@@ -134,7 +130,7 @@ public class Model {
         }
     }
 
-    public void calculateNtmax()
+    private void calculateNtmax()
     {
         for(int j=0; j < docCount; j++)
         {
@@ -149,13 +145,13 @@ public class Model {
         }
     }
 
-    public void calculateTFIDF()
+    private void calculateTFIDF()
     {
         for(int i=0; i < wordCount; i++)
         {
             for(int j=0; j < docCount; j++)
             {
-                float currentTF = occurences.get(i).get(j) / ntmax.get(j);
+                float currentTF = (float) occurences.get(i).get(j) / (float) ntmax.get(j);
                 float currentTFIDF = currentTF * idf.get(j);
                 tfidf.get(i).add(j, currentTFIDF);
             }
@@ -174,5 +170,20 @@ public class Model {
         }
 
         return ret;
+    }
+
+    public void printOccurences()
+    {
+        String str = "";
+        for(int x=0; x < occurences.size(); x++)
+        {
+            for(int y=0; y < occurences.get(x).size(); y++)
+            {
+                str += occurences.get(x).get(y) + "  ";
+            }
+            str += "\n";
+        }
+
+        System.out.println(str);
     }
 }
