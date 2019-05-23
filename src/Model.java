@@ -58,7 +58,6 @@ public class Model {
                         if (sb.toString().isEmpty())
                             continue;
                         addWord(i, sb.toString());
-                        wordCount++;
                         sb.delete(0, sb.length());
                     }
                 }
@@ -93,13 +92,14 @@ public class Model {
     }
 
     public void addWord(int docID, String word) {
+        // Word already in lists
         if(allWords.containsKey(word))
         {
-            System.out.println("found one");
             int wordID = allWords.get(word);
             int occInDoc = occurences.get(wordID).get(docID);
             occurences.get(wordID).set(docID, occInDoc+1);
         }
+        // Add new word
         else
         {
             allWords.put(word, wordCount);
@@ -111,6 +111,8 @@ public class Model {
                 tfidf.get(wordCount).add(0f);
             }
             occurences.get(wordCount).add(docID, 1);
+
+            wordCount++;
         }
     }
 
@@ -182,6 +184,22 @@ public class Model {
                 str += occurences.get(x).get(y) + "  ";
             }
             str += "\n";
+        }
+
+        System.out.println(str);
+    }
+
+    public void getOccurences(String word)
+    {
+        String str = "";
+
+        if(!allWords.containsKey(word))
+            return;
+
+        int wordID = allWords.get(word);
+        for(int i=0; i < occurences.get(wordID).size()-1; i++)
+        {
+            str += fileNames.get(i) + " = " + occurences.get(wordID).get(i) + "\n";
         }
 
         System.out.println(str);

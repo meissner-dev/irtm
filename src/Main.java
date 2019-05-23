@@ -21,6 +21,7 @@ public class Main {
             System.out.println("Enter search term: ");
             input = reader.nextLine();
             System.out.println(model.search(input));
+            //model.getOccurences(input);
         }
 
         reader.close();
