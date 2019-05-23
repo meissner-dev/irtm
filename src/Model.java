@@ -121,10 +121,12 @@ public class Model {
         for(int i=0; i < wordCount; i++)
         {
             float nt = 0;
-            ArrayList<Integer> occInDoc = occurences.get(i);
             for (int j=0; j < docCount; j++)
             {
-                nt += occInDoc.get(j);
+                if(occurences.get(i).get(j) > 0)
+                {
+                    nt++;
+                }
             }
             float N = docCount;
             float idftVal = (float) Math.log(N/nt) + 1;
@@ -172,36 +174,5 @@ public class Model {
         }
 
         return ret;
-    }
-
-    public void printOccurences()
-    {
-        String str = "";
-        for(int x=0; x < occurences.size(); x++)
-        {
-            for(int y=0; y < occurences.get(x).size(); y++)
-            {
-                str += occurences.get(x).get(y) + "  ";
-            }
-            str += "\n";
-        }
-
-        System.out.println(str);
-    }
-
-    public void getOccurences(String word)
-    {
-        String str = "";
-
-        if(!allWords.containsKey(word))
-            return;
-
-        int wordID = allWords.get(word);
-        for(int i=0; i < occurences.get(wordID).size()-1; i++)
-        {
-            str += fileNames.get(i) + " = " + occurences.get(wordID).get(i) + "\n";
-        }
-
-        System.out.println(str);
     }
 }
