@@ -4,83 +4,84 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Scanner;
+import java.util.*;
 
 public class Model {
-    public static final String SENTENCES_TABLE = "SENTENCES",
-            STOPWORDS_TABLE = "STOPWORDS",
-            WORDS_TABLE = "words",
-            WORDS_INVERTED_TABLE = "words_inverted",
-            WORDS_STEMMED_TABLE = "words_stemmed",
-            WORDS_POSITIONS = "words_positions";
-
     private static final ArrayList<Character> DELIMITERS = new ArrayList<>(Arrays.asList(' ', '.', '?', '!', ',', '-', ';', '\n', ':', '«', '»', '–', ':', '\r'));
 
-    private static final ArrayList<Character> DELIMITERS_SENTENCE = new ArrayList<>(Arrays.asList('.', '?', '!', ':', '\r', '\n', (char)13));
-    private int wordCount = 1, sentenceCount = 1;
+    // Übung 2
+    private ArrayList<String> stopWordList;
+    private int docCount, wordCount;
+    private HashMap <Integer, File> allDocs;
+    private HashMap <String, Integer> allWords;
+    private ArrayList<ArrayList<Integer>> occurences;
+    private ArrayList<ArrayList<Float>> tfidf;
+    private ArrayList<Float> idf;
+    private ArrayList<Integer> ntmax;
+    private File stopFile;
+    private ArrayList<String> fileNames;
 
-    private DBConnector dbc;
-    private File textFile, stopFile;
+    public Model(String[] args) {
+        // Init Übung 2
+        allDocs = new HashMap<>();
+        allWords = new HashMap<>();
+        occurences = new ArrayList<>();
+        tfidf = new ArrayList<>();
+        idf = new ArrayList<>();
+        ntmax = new ArrayList<>();
 
-    public Model(String[] args, DBConnector dbc) {
-        this.dbc = dbc;
-        this.textFile = new File(args[0]);
-        this.stopFile = new File(args[1]);
+        this.stopFile = new File(args[0]);
+        fileNames = new ArrayList<>(args.length-1);
+
+        for(int i = 1; i < args.length; i++)
+        {
+            allDocs.put(docCount++, new File(args[i]));
+            String fileName = args[i];
+            fileName = fileName.substring(0, fileName.length()-4);
+            fileNames.add(fileName);
+        }
         makeStopWordList(stopFile);
     }
 
-    public int getWordCount()
-    {
-        return wordCount;
-    }
-
-    public int getSentenceCount()
-    {
-        return sentenceCount;
-    }
-
     public void tokenize() {
-        StringBuilder sb = new StringBuilder();
-        StringBuilder sentence = new StringBuilder();
-        try (FileInputStream fs = new FileInputStream(textFile);
-             InputStreamReader fr = new InputStreamReader(fs)) {
-            int nextChar;
-            while ((nextChar = fr.read()) != -1) {
-                if (!DELIMITERS.contains((char) nextChar)) {
-                    sb.append((char) nextChar);
-                    sentence.append((char) nextChar);
-                } else {
-                    if (sb.toString().isEmpty())
-                        continue;
-                    addWordToDatabase(sb.toString());
-                    wordCount++;
-                    sb.delete(0, sb.length());
-
-                    sentence.append((char) nextChar);
-
-                    if (DELIMITERS_SENTENCE.contains((char) nextChar)) {
-                        sentenceCount++;
-                        dbc.insertInDB(Model.SENTENCES_TABLE, sentence.toString());
-                        sentence.delete(0, sentence.length());
+        for(int i=0; i < docCount; i++)
+        {
+            File textFile = allDocs.get(i);
+            StringBuilder sb = new StringBuilder();
+            try (FileInputStream fs = new FileInputStream(textFile);
+                 InputStreamReader fr = new InputStreamReader(fs)) {
+                int nextChar;
+                while ((nextChar = fr.read()) != -1) {
+                    // Word continues
+                    if (!DELIMITERS.contains((char) nextChar)) {
+                        sb.append((char) nextChar);
+                    } else {
+                        // Word ended
+                        if (sb.toString().isEmpty())
+                            continue;
+                        addWordToDatabase(i, sb.toString());
+                        wordCount++;
+                        sb.delete(0, sb.length());
                     }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 
     public void makeStopWordList(File stopFile) {
+        stopWordList = new ArrayList<>();
         try (Scanner scanner = new Scanner(stopFile)) {
             String word;
             while (scanner.hasNext()) {
                 word = scanner.next();
-                if (!dbc.isInTable(STOPWORDS_TABLE, "sword", word)) {
-                    dbc.insertInDB(STOPWORDS_TABLE, word);
+                if(!stopWordList.contains(word))
+                {
+                    stopWordList.add(word);
                 }
             }
         } catch (FileNotFoundException e) {
@@ -89,50 +90,89 @@ public class Model {
 
     }
 
-    public void addWordToDatabase(String word) {
-        if(!dbc.isInTable(STOPWORDS_TABLE, "sword", word))
+    public void calculate()
+    {
+        calculateIDF();
+        calculateNtmax();
+        calculateTFIDF();
+    }
+
+    public void addWordToDatabase(int docID, String word) {
+        if(allWords.containsValue(word))
         {
-            dbc.insertInDB(WORDS_TABLE, word);
-            dbc.insertInDB(WORDS_STEMMED_TABLE, stem(word));
+            int wordID = allWords.get(word);
+            int occInDoc = occurences.get(wordID).get(docID);
+            occurences.get(wordID).set(docID, occInDoc+1);
+        }
+        else
+        {
+            allWords.put(word, wordCount);
+            occurences.add(wordCount, new ArrayList<>(docCount));
+            tfidf.add(wordCount, new ArrayList<>(docCount));
+            for(int j=0; j < docCount; j++)
+            {
+                occurences.get(wordCount).add(0);
+                tfidf.get(wordCount).add(0f);
+            }
+            occurences.get(wordCount).add(docID, 1);
         }
     }
 
-    public static String stem(String string) {
-        GermanStemmer stemmer = new GermanStemmer();
-        stemmer.setCurrent(string);
-        stemmer.stem();
-        return stemmer.getCurrent();
+    public void calculateIDF()
+    {
+        for(int i=0; i < wordCount; i++)
+        {
+            float nt = 0;
+            ArrayList<Integer> occInDoc = occurences.get(i);
+            for (int j=0; j < docCount; j++)
+            {
+                nt += occInDoc.get(j);
+            }
+            float N = docCount;
+            float idftVal = (float) Math.log(N/nt) + 1;
+            idf.add(i, idftVal);
+        }
+    }
+
+    public void calculateNtmax()
+    {
+        for(int j=0; j < docCount; j++)
+        {
+            int currentMax = 0;
+            for(int i=0; i < wordCount; i++)
+            {
+                int occInDoc = occurences.get(i).get(j);
+                currentMax = (occInDoc > currentMax) ? occInDoc : currentMax;
+            }
+
+            ntmax.add(j, currentMax);
+        }
+    }
+
+    public void calculateTFIDF()
+    {
+        for(int i=0; i < wordCount; i++)
+        {
+            for(int j=0; j < docCount; j++)
+            {
+                float currentTF = occurences.get(i).get(j) / ntmax.get(j);
+                float currentTFIDF = currentTF * idf.get(j);
+                tfidf.get(i).add(j, currentTFIDF);
+            }
+        }
     }
 
     public String search(String searchTerm) {
-        String result = new String();
+        if(!allWords.containsKey(searchTerm))
+            return "Word not found";
 
-        try
+        int wordID = allWords.get(searchTerm);
+        String ret = "Results: ";
+        for(int j = 0; j < docCount; j++)
         {
-            ResultSet rs = dbc.queryDB("Select posId from " + Model.WORDS_INVERTED_TABLE + " where WORD=\"" + searchTerm + "\"");
-            if(rs.next())
-            {
-                int posId = rs.getInt("posId");
-                rs = dbc.queryDB("Select positions from " + Model.WORDS_POSITIONS + " where POSID=\"" + posId + "\"");
-                if(rs.next())
-                {
-                    result = rs.getString("positions");
-                }
-                else
-                {
-                    System.err.println("Error finding positions linked to found posId");
-                }
-            }
-            else
-            {
-                result = "'" + searchTerm + "' could not be found";
-            }
-        }
-        catch (SQLException e)
-        {
-            e.printStackTrace();
+            ret += "\n" + fileNames.get(j) + " = " + tfidf.get(wordID).get(j);
         }
 
-        return result;
+        return ret;
     }
 }

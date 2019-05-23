@@ -2,6 +2,7 @@ import java.sql.*;
 import java.util.*;
 
 public class DBConnector {
+    /*
     Connection con;
     private ArrayList<String> sentenceList;
     private ArrayList<Word> wordList, stemmedWordList;
@@ -63,10 +64,8 @@ public class DBConnector {
                 insertInSentences(args[1]);
                 break;
             case Model.WORDS_TABLE:
-                insertInWords(args[1]);
                 break;
             case Model.WORDS_STEMMED_TABLE:
-                insertInStemmedWords(args[1]);
                 break;
             default:
                 System.err.println("Non-valid tablename");
@@ -174,14 +173,6 @@ public class DBConnector {
         return false;
     }
 
-    private void insertInWords(String word) {
-        wordList.add(new Word(word, model.getWordCount(), model.getSentenceCount()));
-    }
-
-    private void insertInStemmedWords(String word) {
-        stemmedWordList.add(new Word(word, model.getWordCount(), model.getSentenceCount()));
-    }
-
     private void insertInSentences(String content) {
         sentenceList.add(content);
     }
@@ -206,4 +197,5 @@ public class DBConnector {
         createInvertedList();
         updateSentenceList();
     }
+     */
 }

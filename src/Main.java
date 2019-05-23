@@ -5,11 +5,9 @@ public class Main {
         System.out.println("Analysing...");
         long start = System.currentTimeMillis();
 
-        DBConnector dbc = new DBConnector();
-        Model model = new Model(args,dbc);
-        dbc.setModel(model);
+        Model model = new Model(args);
         model.tokenize();
-        dbc.UpdateDatabase();
+        model.calculate();
 
         System.out.println(System.currentTimeMillis()-start);
         System.out.println("Analysis succesful.");
@@ -20,7 +18,7 @@ public class Main {
         {
             System.out.println("Enter search term: ");
             input = reader.nextLine();
-            System.out.println("Positions: " + model.search(input));
+            System.out.println(model.search(input));
         }
 
         reader.close();
