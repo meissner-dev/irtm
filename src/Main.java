@@ -4,7 +4,7 @@ public class Main {
     public static void main(String[] args){
         System.out.println("Analyzing...");
 
-        Model model = new Model(args, false);
+        Model model = new Model(args, false, 0.2f);
         model.tokenize();
         model.calculate();
 
@@ -14,7 +14,7 @@ public class Main {
         String input = new String();
         while(!input.equals("exit"))
         {
-            System.out.println("Enter search term: ");
+            System.out.println("Enter getTfidf term: ");
             input = reader.nextLine();
             System.out.println(model.search(input));
         }

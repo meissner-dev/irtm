@@ -21,8 +21,9 @@ public class Model {
     private File stopFile;
     private ArrayList<String> fileNames;
     private boolean useStemmed;
+    private float threshold;
 
-    public Model(String[] args, boolean useStemmed) {
+    public Model(String[] args, boolean useStemmed, float threshold) {
         // Init Übung 2
         allDocs = new HashMap<>();
         allWords = new HashMap<>();
@@ -44,6 +45,7 @@ public class Model {
         makeStopWordList(stopFile);
 
         this.useStemmed = useStemmed;
+        this.threshold = threshold;
     }
 
     private String stem(String germanWord)
@@ -107,6 +109,11 @@ public class Model {
         calculateIDF();
         calculateNtmax();
         calculateTFIDF();
+
+        if(threshold != 0f)
+        {
+            thresholdTfidf();
+        }
     }
 
     public void addWord(int docID, String word) {
@@ -180,15 +187,76 @@ public class Model {
         }
     }
 
-    public String search(String searchTerm) {
+    private void thresholdTfidf()
+    {
+        for(int i = 0; i < tfidf.size(); i++)
+        {
+            ArrayList<Float> column = tfidf.get(i);
+            for (int j = 0; j < column.size(); j++)
+            {
+                if(column.get(j) < threshold)
+                    column.set(j, 0f);
+                else
+                    column.set(j, 1f);
+            }
+        }
+    }
+
+    public float[] getTfidf(String searchTerm) {
         if(!allWords.containsKey(searchTerm))
-            return "Word not found";
+            return null;
 
         int wordID = allWords.get(searchTerm);
-        String ret = "Results: ";
-        for(int j = 0; j < docCount; j++)
+        float[] results = new float[docCount];
+        for(int i = 0; i < docCount; i++)
         {
-            ret += "\n" + fileNames.get(j) + " = " + tfidf.get(wordID).get(j);
+            results[i] = tfidf.get(wordID).get(i);
+        }
+
+        return results;
+    }
+
+    public String search(String searchTerm)
+    {
+        String[] split = searchTerm.split(" ");
+        String ret = "Word/s found in: ";
+
+        // Wenn 2 Wörter mit/ohne "und" gesucht werden
+        if(split.length == 2 || (split.length > 2 && split[1].equals("und")))
+        {
+            float[] tfidfT1 = getTfidf(split[0]);
+            float[] tfidfT2 = getTfidf(split[split.length-1]);
+            for (int i=0; i < tfidfT1.length; i++)
+            {
+                float tfidf = tfidfT1[i] > 0 && tfidfT2[i] > 0? 1 : 0;
+                if(tfidf > 0)
+                    ret += fileNames.get(i) + " ";
+            }
+        }
+        // Wenn 2 Wörter mit "oder" gesucht werden
+        else if(split.length > 2 && split[1].equals("oder"))
+        {
+            float[] tfidfT1 = getTfidf(split[0]);
+            float[] tfidfT2 = getTfidf(split[2]);
+            for (int i=0; i < tfidfT1.length; i++)
+            {
+                float tfidf = tfidfT1[i] > tfidfT2[i] ? tfidfT1[i] : tfidfT2[i];
+                if(tfidf > 0)
+                    ret += fileNames.get(i) + " ";
+            }
+        }
+        // Wenn 1 Wort gesucht wird
+        else
+        {
+            float[] tfidf = getTfidf(searchTerm);
+            if(tfidf == null)
+                return "word not found";
+
+            for (int i=0; i < tfidf.length; i++)
+            {
+                if(tfidf[i] > 0)
+                    ret += fileNames.get(i) + " ";
+            }
         }
 
         return ret;
