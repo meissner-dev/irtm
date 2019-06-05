@@ -1,3 +1,5 @@
+import org.tartarus.snowball.ext.GermanStemmer;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -18,8 +20,9 @@ public class Model {
     private ArrayList<Integer> ntmax;
     private File stopFile;
     private ArrayList<String> fileNames;
+    private boolean useStemmed;
 
-    public Model(String[] args) {
+    public Model(String[] args, boolean useStemmed) {
         // Init Übung 2
         allDocs = new HashMap<>();
         allWords = new HashMap<>();
@@ -39,6 +42,16 @@ public class Model {
             fileNames.add(fileName);
         }
         makeStopWordList(stopFile);
+
+        this.useStemmed = useStemmed;
+    }
+
+    private String stem(String germanWord)
+    {
+        GermanStemmer myStem = new GermanStemmer();
+        myStem.setCurrent(germanWord);
+        myStem.stem();
+        return myStem.getCurrent();
     }
 
     public void tokenize() {
@@ -57,7 +70,12 @@ public class Model {
                         // Word ended
                         if (sb.toString().isEmpty())
                             continue;
-                        addWord(i, sb.toString());
+
+                        if(useStemmed)
+                            addWord(i, stem(sb.toString()));
+                        else
+                            addWord(i, sb.toString());
+
                         sb.delete(0, sb.length());
                     }
                 }
