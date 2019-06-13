@@ -1,9 +1,6 @@
 import org.tartarus.snowball.ext.GermanStemmer;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.*;
 
 public class Model {
@@ -141,6 +138,38 @@ public class Model {
         }
     }
 
+    private ArrayList tfidfVector;
+
+    private void addWordVector(String word)
+    {
+        if(tfidfVector == null)
+        {
+            tfidfVector = new ArrayList(Collections.nCopies(allWords.size(), 0f));
+        }
+
+        if(allWords.containsKey(word))
+        {
+            int wordID = allWords.get(word);
+            tfidfVector.set(wordID, 1f);
+        }
+        else
+        {
+            tfidfVector.add(wordCount, 1f);
+
+            allWords.put(word, wordCount);
+            occurences.add(wordCount, new ArrayList<>(docCount));
+            tfidf.add(wordCount, new ArrayList<>(docCount));
+            for(int j=0; j < docCount; j++)
+            {
+                occurences.get(wordCount).add(0);
+                tfidf.get(wordCount).add(0f);
+            }
+            occurences.get(wordCount).add(docCount, 1);
+
+            wordCount++;
+        }
+    }
+
     private void calculateIDF()
     {
         for(int i=0; i < wordCount; i++)
@@ -214,6 +243,81 @@ public class Model {
         }
 
         return results;
+    }
+
+    private float scalar(ArrayList vector, ArrayList tfidfVector)
+    {
+        System.out.println(vector.size() + " vs " + tfidfVector.size());
+        float sum = 0;
+        for (int i = 0; i < vector.size(); i++) {
+            sum += (float) vector.get(i) + (float) tfidfVector.get(i);
+        }
+        return sum;
+    }
+
+    private double magnitude(ArrayList vector)
+    {
+        float result = 0;
+        for (Object o : vector) {
+            float value = (float) o;
+            result += value * value;
+        }
+
+        return Math.sqrt(result) == 0 ? 1 : Math.sqrt(result);
+    }
+
+    public String searchVector(String searchTerm)
+    {
+        if(tfidfVector == null)
+        {
+            tfidfVector = new ArrayList(Collections.nCopies(allWords.size(), 0f));
+        }
+
+        String ret = "";
+
+        int vectorPos = docCount + 1;
+        try {
+            StringBuilder sb = new StringBuilder();
+            InputStream targetStream = new ByteArrayInputStream(searchTerm.getBytes());
+            InputStreamReader fr = new InputStreamReader(targetStream);
+            int nextChar;
+            while ((nextChar = fr.read()) != -1)
+            {
+                // Word continues
+                if (!DELIMITERS.contains((char) nextChar)) {
+                    sb.append((char) nextChar);
+                } else {
+                    // Word ended
+                    if (sb.toString().isEmpty())
+                        continue;
+
+                    System.out.println("trying to add " + sb.toString());
+
+                    if (useStemmed)
+                        addWordVector(stem(sb.toString()));
+                    else
+                        addWordVector(sb.toString());
+
+                    sb.delete(0, sb.length());
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+
+        // tfidf aktualisieren
+        calculate();
+
+        for (int i = 0; i < docCount; i++) {
+            float alpha = scalar(tfidf.get(i), tfidfVector);
+            alpha /= magnitude(tfidf.get(i)) * magnitude((tfidfVector));
+            //double cosSimilar = Math.cos(alpha);
+            ret += fileNames.get(i) + ": " + alpha + "\n";
+        }
+
+        return ret;
     }
 
     public String search(String searchTerm)
