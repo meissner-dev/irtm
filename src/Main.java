@@ -16,7 +16,7 @@ public class Main {
         {
             System.out.println("Enter getTfidf term: ");
             input = reader.nextLine();
-            System.out.println(model.searchVector(input));
+            System.out.println(model.search(input));
         }
 
         reader.close();

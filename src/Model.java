@@ -139,6 +139,18 @@ public class Model {
     }
 
     private ArrayList tfidfVector;
+    private ArrayList<ArrayList<Float>> reversedTfidf;
+
+    private void reverseTfidf()
+    {
+        reversedTfidf = new ArrayList<>();
+        for (int i = 0; i < tfidf.size(); i++) {
+            ArrayList temp = tfidf.get(i);
+            for (int j = 0; j < temp.size(); j++) {
+                reversedTfidf.get(i).add(j, (float) temp.get(j));
+            }
+        }
+    }
 
     private void addWordVector(String word)
     {
@@ -151,22 +163,6 @@ public class Model {
         {
             int wordID = allWords.get(word);
             tfidfVector.set(wordID, 1f);
-        }
-        else
-        {
-            tfidfVector.add(wordCount, 1f);
-
-            allWords.put(word, wordCount);
-            occurences.add(wordCount, new ArrayList<>(docCount));
-            tfidf.add(wordCount, new ArrayList<>(docCount));
-            for(int j=0; j < docCount; j++)
-            {
-                occurences.get(wordCount).add(0);
-                tfidf.get(wordCount).add(0f);
-            }
-            occurences.get(wordCount).add(docCount, 1);
-
-            wordCount++;
         }
     }
 
@@ -311,7 +307,7 @@ public class Model {
         calculate();
 
         for (int i = 0; i < docCount; i++) {
-            float alpha = scalar(tfidf.get(i), tfidfVector);
+            float alpha = scalar(tfidfVector, tfidf.get(i));
             alpha /= magnitude(tfidf.get(i)) * magnitude((tfidfVector));
             //double cosSimilar = Math.cos(alpha);
             ret += fileNames.get(i) + ": " + alpha + "\n";
@@ -361,6 +357,10 @@ public class Model {
                 if(tfidf[i] > 0)
                     ret += fileNames.get(i) + " ";
             }
+        }
+
+        for (int i = 0; i < tfidf.size(); i++) {
+            System.out.println(i + ". is this big " + tfidf.get(i).size());
         }
 
         return ret;
